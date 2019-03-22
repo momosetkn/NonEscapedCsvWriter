@@ -18,8 +18,7 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /**
- * エスケープ処理をしない高速でシンプルなCSV書き込みライブラリ.
- * ロックしていないため、スレッドアンセーフです.
+ * エスケープ処理をしない高速でシンプルなCSV書き込みライブラリ. ロックしていないため、スレッドアンセーフです.
  *
  * @param <E>
  */
@@ -29,7 +28,7 @@ public class NonEscapedCsvWriter<E> implements Closeable, Flushable {
     private int charsCapacity = 100;
     private Function<Object, String> convert = (o) -> Objects.toString(o, "null");
 
-    private static final int WRITE_BUFFER_SIZE = 0x400;//1k
+    private static final int WRITE_BUFFER_SIZE = 0x400; // 1k
     private char[] writeBuffer;
 
     public NonEscapedCsvWriter(Class<E> beanClazz, Writer writer) {
@@ -61,16 +60,14 @@ public class NonEscapedCsvWriter<E> implements Closeable, Flushable {
     public void init() throws IOException {
         charsCapacity = labelWithMethodList.size() * 15;
         StringBuilder header = new StringBuilder(charsCapacity);
-        labelWithMethodList.stream()
-                .map(e -> e.label)
-                .forEach(e -> header.append(e).append(","));
+        labelWithMethodList.stream().map(e -> e.label).forEach(e -> header.append(e).append(","));
         header.deleteCharAt(header.length() - 1);
         writer.write(header.toString());
     }
 
     private void writeWithStringBuilder(StringBuilder sb) throws IOException {
         int len = sb.length();
-        char cbuf[];
+        char[] cbuf;
         if (len <= WRITE_BUFFER_SIZE) {
             if (writeBuffer == null) {
                 writeBuffer = new char[WRITE_BUFFER_SIZE];
@@ -85,15 +82,14 @@ public class NonEscapedCsvWriter<E> implements Closeable, Flushable {
 
     public void write(E bean) throws IOException {
         StringBuilder values = new StringBuilder(charsCapacity).append("\n");
-        for (LabelWithMethod labelWithMethod : labelWithMethodList) {
-            try {
-                values.append(
-                        labelWithMethod.getter.invoke(bean));
-            } catch (IllegalAccessException | InvocationTargetException e1) {
-                throw new RuntimeException(e1);
-            }
-        }
-        values.append(",");
+        labelWithMethodList.forEach(
+                e -> {
+                    try {
+                        values.append(convert.apply(e.getter.invoke(bean))).append(',');
+                    } catch (IllegalAccessException | InvocationTargetException e1) {
+                        throw new RuntimeException(e1);
+                    }
+                });
         values.deleteCharAt(values.length() - 1);
         writeWithStringBuilder(values);
     }
